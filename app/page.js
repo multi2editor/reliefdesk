@@ -158,7 +158,7 @@ export default function App() {
   return (
     <>
       <div className="topbar">
-        <div className="logo"><div className="box">▦</div> ReliefDesk</div>
+        <div className="logo"><Logo size={28} /> ReliefDesk</div>
         <div className="school">
           {school?.name || 'School'} · {session.user.email}
           <button className="signout danger" onClick={() => setShowReset(true)}>Reset all</button>
@@ -249,6 +249,22 @@ function ResetModal({ onCancel, onConfirm }) {
   );
 }
 
+function Logo({ size = 34 }) {
+  // 3x3 timetable grid; the cobalt cell = the cover slot, filled.
+  const u = size / 3.6;
+  return (
+    <svg width={size} height={size} viewBox="0 0 36 36" aria-label="ReliefDesk logo">
+      <rect x="1" y="1" width="34" height="34" rx="7" fill="#0F2A43" />
+      {[0, 1, 2].map((r) =>
+        [0, 1, 2].map((c) => (
+          <rect key={`${r}${c}`} x={6 + c * 9} y={6 + r * 9} width="7" height="7" rx="1.6"
+            fill={r === 1 && c === 2 ? '#1D6FD1' : 'rgba(255,255,255,0.28)'} />
+        ))
+      )}
+    </svg>
+  );
+}
+
 function LoginGate() {
   const [email, setEmail] = useState('');
   const [pw, setPw] = useState('');
@@ -264,9 +280,14 @@ function LoginGate() {
 
   return (
     <div className="gate">
-      <div className="login-card">
-        <div className="logo"><div className="box">▦</div> ReliefDesk</div>
-        <p>Admin sign-in</p>
+      <div className="login-card" style={{ textAlign: 'center' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+          <Logo size={54} />
+          <div className="logo" style={{ color: 'var(--navy)', fontSize: 24 }}>ReliefDesk</div>
+        </div>
+        <p style={{ marginBottom: 4 }}>Relief cover, sorted before first bell.</p>
+        <p style={{ fontSize: 12, marginBottom: 18 }}>Admin sign-in</p>
+        <div style={{ textAlign: 'left' }}>
         <label className="f">Email</label>
         <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
         <label className="f">Password</label>
@@ -276,6 +297,7 @@ function LoginGate() {
         <button className="btn" style={{ width: '100%' }} onClick={login} disabled={busy}>
           {busy ? 'Signing in…' : 'Sign In'}
         </button>
+        </div>
       </div>
     </div>
   );
