@@ -1,7 +1,7 @@
 'use client';
 
 import { supabase } from '../lib/supabaseClient';
-import { todayDayIndex } from '../lib/day';
+import { todayDayIndex, periodLabelLong } from '../lib/day';
 
 export default function ReviewTab({ school, teachers, covers, absences, slots, reload, goPrint }) {
   const byId = Object.fromEntries(teachers.map((t) => [t.id, t]));
@@ -68,7 +68,7 @@ export default function ReviewTab({ school, teachers, covers, absences, slots, r
                   const options = freeAt(c.period, aid);
                   return (
                     <tr key={c.id}>
-                      <td><strong>L{c.period}</strong></td>
+                      <td><strong>{periodLabelLong(c.period)}</strong></td>
                       <td>{c.class_name}</td>
                       <td>{c.room}</td>
                       <td>

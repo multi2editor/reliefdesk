@@ -1,10 +1,9 @@
 'use client';
 
 import { supabase } from '../lib/supabaseClient';
-import { todayISO, todayDayIndex, dayLabel, dayCount } from '../lib/day';
+import { todayISO, todayDayIndex, dayLabel, dayCount, periodList, periodLabel } from '../lib/day';
 
 export default function AbsencesTab({ school, teachers, absences, reload, onGenerate }) {
-  const periods = school.periods_per_day;
   const date = todayISO();
   const absMap = {};
   absences.forEach((a) => (absMap[a.teacher_id] = a));
@@ -22,7 +21,7 @@ export default function AbsencesTab({ school, teachers, absences, reload, onGene
         school_id: school.id,
         teacher_id: t.id,
         date,
-        periods: Array.from({ length: periods }, (_, i) => i + 1),
+        periods: periodList(school),
       });
     } else {
       await supabase.from('absences').delete().eq('teacher_id', t.id).eq('date', date);
@@ -88,12 +87,12 @@ export default function AbsencesTab({ school, teachers, absences, reload, onGene
                 </label>
                 {row && (
                   <div className="period-picker">
-                    {Array.from({ length: periods }, (_, i) => {
-                      const p = i + 1;
+                    {periodList(school).map((p) => {
                       const on = row.periods.includes(p);
                       return (
                         <button key={p} className={`pbtn ${on ? 'on' : ''}`}
-                          onClick={() => togglePeriod(t, p)}>L{p}</button>
+                          style={p === 0 || p === 99 ? { width: 'auto', padding: '0 8px' } : {}}
+                          onClick={() => togglePeriod(t, p)}>{periodLabel(p)}</button>
                       );
                     })}
                   </div>

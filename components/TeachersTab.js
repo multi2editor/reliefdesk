@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { dayCount, dayLabel } from '../lib/day';
+import { dayCount, dayLabel, periodList, periodLabel } from '../lib/day';
 
 export default function TeachersTab({ school, teachers, slots, recentCounts, reload }) {
   const [editing, setEditing] = useState(null);
@@ -140,7 +140,7 @@ function GridEditor({ school, teacher, slots, reload, onClose }) {
     // Build desired rows from the grid
     const desired = [];
     for (let d = 1; d <= days; d++) {
-      for (let p = 1; p <= periods; p++) {
+      for (const p of periodList(school)) {
         const raw = (grid[`${d}-${p}`] || '').trim();
         if (!raw) continue;
         const [cls, ...roomParts] = raw.split(',');
@@ -190,7 +190,7 @@ function GridEditor({ school, teacher, slots, reload, onClose }) {
           <thead>
             <tr>
               <th></th>
-              {Array.from({ length: periods }, (_, i) => <th key={i}>L{i + 1}</th>)}
+              {periodList(school).map((p) => <th key={p}>{periodLabel(p)}</th>)}
             </tr>
           </thead>
           <tbody>
@@ -199,8 +199,7 @@ function GridEditor({ school, teacher, slots, reload, onClose }) {
               return (
                 <tr key={d}>
                   <th>{dayLabel(school, d)}</th>
-                  {Array.from({ length: periods }, (_, pi) => {
-                    const p = pi + 1;
+                  {periodList(school).map((p) => {
                     const val = grid[`${d}-${p}`] || '';
                     return (
                       <td key={p} style={{ padding: 3 }}>

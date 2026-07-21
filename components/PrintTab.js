@@ -1,8 +1,9 @@
 'use client';
 
+import { periodList, periodLabel } from '../lib/day';
+
 export default function PrintTab({ school, teachers, covers, absences }) {
   const byId = Object.fromEntries(teachers.map((t) => [t.id, t]));
-  const periods = school.periods_per_day;
   const absentIds = [...new Set(covers.map((c) => c.absent_teacher_id))];
   const absMap = {};
   absences.forEach((a) => (absMap[a.teacher_id] = new Set(a.periods)));
@@ -34,14 +35,14 @@ export default function PrintTab({ school, teachers, covers, absences }) {
       <div className="sheet">
         <div className="s-head">
           <h1>TEACHER COVER — TODAY</h1>
-          <div className="s-date">{school.name} · {dateStr}</div>
+          <div className="s-date">{school.name} · {school.timetable_mode === 'cycle' ? `Day ${school.current_cycle_day} · ` : ''}{dateStr}</div>
         </div>
         <div className="sheet-scroll">
           <table className="print">
             <thead>
               <tr>
                 <th style={{ textAlign: 'left', paddingLeft: 12 }}>Absent Teacher</th>
-                {Array.from({ length: periods }, (_, i) => <th key={i}>L{i + 1}</th>)}
+                {periodList(school).map((p) => <th key={p}>{periodLabel(p).toUpperCase()}</th>)}
               </tr>
             </thead>
             <tbody>
@@ -50,8 +51,7 @@ export default function PrintTab({ school, teachers, covers, absences }) {
                 return (
                   <tr key={aid}>
                     <td className="absname">{t?.name || '—'}</td>
-                    {Array.from({ length: periods }, (_, i) => {
-                      const p = i + 1;
+                    {periodList(school).map((p) => {
                       const c = covers.find((x) => x.absent_teacher_id === aid && x.period === p);
                       const isAbsentThisPeriod = absMap[aid]?.has(p);
                       if (!c || !isAbsentThisPeriod) return <td key={p} className="dash">—</td>;
@@ -59,7 +59,7 @@ export default function PrintTab({ school, teachers, covers, absences }) {
                       const cov = byId[c.cover_teacher_id];
                       return (
                         <td key={p}>
-                          <span className="room">{c.room}</span>
+                          <span className="room">{c.class_name}</span>
                           <span className="cov">{cov?.name}</span>
                         </td>
                       );

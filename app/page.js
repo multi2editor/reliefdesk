@@ -8,7 +8,7 @@ import AbsencesTab from '../components/AbsencesTab';
 import ReviewTab from '../components/ReviewTab';
 import PrintTab from '../components/PrintTab';
 import SettingsTab from '../components/SettingsTab';
-import { todayISO, todayDayIndex } from '../lib/day';
+import { todayISO, todayDayIndex, periodList } from '../lib/day';
 
 const TABS = [
   { key: 'teachers', label: 'Teachers & Timetables', step: 1 },
@@ -112,7 +112,7 @@ export default function App() {
       slotsByTeacher,
       absences: absMap,
       recentCoverCounts: recentCounts,
-      periodsPerDay: school.periods_per_day,
+      periods: periodList(school),
       dailyCap: school.daily_cover_cap,
     });
 
