@@ -18,6 +18,24 @@ const TABS = [
   { key: 'settings', label: 'Settings', step: '⚙' },
 ];
 
+async function fetchAllTimetableSlots() {
+  const PAGE_SIZE = 1000;
+  let from = 0;
+  let all = [];
+  while (true) {
+    const { data, error } = await supabase
+      .from('timetable_slots')
+      .select('*')
+      .order('id')
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) return { data: null, error };
+    all = all.concat(data || []);
+    if (!data || data.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
+  }
+  return { data: all, error: null };
+}
+
 export default function App() {
   const [session, setSession] = useState(null);
   const [tab, setTab] = useState('teachers');
@@ -49,11 +67,12 @@ export default function App() {
       const [{ data: sch }, { data: t }, { data: sl }] = await Promise.all([
         supabase.from('schools').select('*').limit(1).single(),
         supabase.from('teachers').select('*').eq('active', true).order('name'),
-        supabase.from('timetable_slots').select('*'),
+        fetchAllTimetableSlots(),
       ]);
       setSchool(sch);
       setTeachers(t || []);
       setSlots(sl || []);
+      console.log('SLOTS FETCHED:', sl?.length);
 
       const date = todayISO();
       const [{ data: abs }, { data: cov }] = await Promise.all([
