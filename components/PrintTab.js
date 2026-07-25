@@ -34,7 +34,7 @@ export default function PrintTab({ school, teachers, covers, absences }) {
 
       <div className="sheet">
         <div className="s-head">
-          <h1>TEACHER COVER — TODAY</h1>
+          <h1>BATTING — TODAY</h1>
           <div className="s-date">{school.name} · {school.timetable_mode === 'cycle' ? `Day ${school.current_cycle_day} · ` : ''}{dateStr}</div>
         </div>
         <div className="sheet-scroll">

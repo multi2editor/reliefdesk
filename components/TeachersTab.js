@@ -91,6 +91,9 @@ function GridEditor({ school, teacher, slots, reload, onClose }) {
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState(teacher.name);
+  const [savingName, setSavingName] = useState(false);
 
   // load existing slots into the grid
   useEffect(() => {
@@ -168,6 +171,21 @@ function GridEditor({ school, teacher, slots, reload, onClose }) {
     setMsg('✓ Timetable saved.');
   }
 
+  async function saveName() {
+    const trimmed = nameInput.trim();
+    if (!trimmed) return;
+    setSavingName(true);
+    await supabase.from('teachers').update({ name: trimmed }).eq('id', teacher.id);
+    await reload();
+    setSavingName(false);
+    setEditingName(false);
+  }
+
+  function cancelName() {
+    setNameInput(teacher.name);
+    setEditingName(false);
+  }
+
   async function removeTeacher() {
     if (!confirm(`Remove ${teacher.name}? Their timetable and history go too.`)) return;
     await supabase.from('teachers').delete().eq('id', teacher.id);
@@ -178,7 +196,26 @@ function GridEditor({ school, teacher, slots, reload, onClose }) {
   return (
     <div className="card" style={{ marginTop: 18 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
-        <h3 style={{ fontFamily: 'var(--display)' }}>{teacher.name} — timetable</h3>
+        {editingName ? (
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <input type="text" value={nameInput} autoFocus
+              onChange={(e) => setNameInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && saveName()}
+              style={{ fontFamily: 'var(--display)', fontSize: 16, padding: '6px 10px' }} />
+            <button className="btn" onClick={saveName} disabled={savingName || !nameInput.trim()}>
+              {savingName ? 'Saving…' : 'Save'}
+            </button>
+            <button className="btn ghost" onClick={cancelName} disabled={savingName}>Cancel</button>
+          </div>
+        ) : (
+          <h3 style={{ fontFamily: 'var(--display)', display: 'flex', alignItems: 'center', gap: 8 }}>
+            {teacher.name} — timetable
+            <button className="btn ghost" onClick={() => setEditingName(true)}
+              style={{ padding: '2px 8px', fontSize: 11.5, fontWeight: 600 }}>
+              ✎ Edit name
+            </button>
+          </h3>
+        )}
         <div style={{ display: 'flex', gap: 8 }}>
           <button className="btn ghost" style={{ borderColor: 'var(--red)', color: 'var(--red)' }}
             onClick={removeTeacher}>Remove teacher</button>
