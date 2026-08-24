@@ -56,24 +56,29 @@ export default function App() {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
     return () => sub.subscription.unsubscribe();
-  }, []);
+        }, []);
 
   // ---------- data loading ----------
   const firstLoad = useRef(true);
   const loadAll = useCallback(async () => {
+    if (!session) return;
     if (firstLoad.current) setLoading(true); // full loading screen only once
     setErr('');
     try {
-      const [{ data: sch }, { data: t }, { data: sl }] = await Promise.all([
-        supabase.from('schools').select('*').limit(1).single(),
+      console.log('LOAD START');
+      const { data: sch } = await supabase
+        .from('schools')
+        .select('*, school_admins!inner(user_id)')
+        .eq('school_admins.user_id', session.user.id)
+        .single();
+      const [{ data: t }, { data: sl }] = await Promise.all([
         supabase.from('teachers').select('*').eq('active', true).order('name'),
         fetchAllTimetableSlots(),
       ]);
       setSchool(sch);
       setTeachers(t || []);
       setSlots(sl || []);
-      console.log('SLOTS FETCHED:', sl?.length);
-
+      console.log('LOAD MID: school+teachers+slots done', sch, t?.length, sl?.length);
       const date = todayISO();
       const [{ data: abs }, { data: cov }] = await Promise.all([
         supabase.from('absences').select('*').eq('date', date),
@@ -94,7 +99,8 @@ export default function App() {
         counts[r.cover_teacher_id] = (counts[r.cover_teacher_id] || 0) + 1;
       });
       setRecentCounts(counts);
-    } catch (e) {
+       } catch (e) {
+      console.error('LOAD ERROR:', e);
       setErr('Could not load data: ' + e.message);
     }
     setLoading(false);
@@ -287,10 +293,15 @@ function Logo({ size = 34 }) {
 function LoginGate() {
   const [email, setEmail] = useState('');
   const [pw, setPw] = useState('');
+  const [showPw, setShowPw] = useState(false);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
 
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
   async function login() {
+    if (!emailValid) { setErr('Enter a valid email address (e.g. name@school.co.za).'); return; }
+    if (!pw) { setErr('Enter your password.'); return; }
     setBusy(true); setErr('');
     const { error } = await supabase.auth.signInWithPassword({ email, password: pw });
     if (error) setErr(error.message);
@@ -308,12 +319,36 @@ function LoginGate() {
         <p style={{ fontSize: 12, marginBottom: 18 }}>Admin sign-in</p>
         <div style={{ textAlign: 'left' }}>
         <label className="f">Email</label>
-        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-        <label className="f">Password</label>
-        <input type="password" value={pw} onChange={(e) => setPw(e.target.value)}
+        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && login()} />
+        <label className="f">Password</label>
+                        <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+          <input type={showPw ? 'text' : 'password'} value={pw} onChange={(e) => setPw(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && login()}
+            style={{ width: '100%', paddingRight: 44 }} />
+                    <button type="button" onClick={() => setShowPw(!showPw)}
+            aria-label={showPw ? 'Hide password' : 'Show password'}
+            style={{
+              position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
+              height: 20, width: 20, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'var(--muted)',
+              lineHeight: 0,
+            }}>
+            {showPw ? (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a18.7 18.7 0 0 1 5.06-5.94M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a18.7 18.7 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" strokeLinecap="round" strokeLinejoin="round"/>
+                <line x1="1" y1="1" x2="23" y2="23" strokeLinecap="round"/>
+              </svg>
+            ) : (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" strokeLinecap="round" strokeLinejoin="round"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+            )}
+          </button>
+        </div>
         {err && <p className="err">{err}</p>}
-        <button className="btn" style={{ width: '100%' }} onClick={login} disabled={busy}>
+        <button className="btn" style={{ width: '100%', marginTop: 14 }} onClick={login} disabled={busy}>
           {busy ? 'Signing in…' : 'Sign In'}
         </button>
         </div>
