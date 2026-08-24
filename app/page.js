@@ -62,7 +62,7 @@ export default function App() {
   const firstLoad = useRef(true);
   const loadAll = useCallback(async () => {
     if (!session) return;
-    if (firstLoad.current) setLoading(true); // full loading screen only once
+        setLoading(true);
     setErr('');
     try {
       console.log('LOAD START');
