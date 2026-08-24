@@ -105,7 +105,7 @@ export default function App() {
     }
     setLoading(false);
     firstLoad.current = false;
-  }, []);
+  }, [session]);
 
   useEffect(() => {
     if (session) loadAll();
