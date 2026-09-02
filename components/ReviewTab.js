@@ -11,12 +11,23 @@ export default function ReviewTab({ school, teachers, covers, absences, slots, r
   const dow = todayDayIndex(school);
 
   // teachers free at a given period today (for the override dropdown)
-  function freeAt(period, absentId) {
+  function freeAt(period, absentId, currentCoverId) {
     const teaching = new Set(
       slots.filter((s) => s.day_of_week === dow && s.period === period).map((s) => s.teacher_id)
     );
+    // already assigned as cover for another absent teacher this same period
+    // (exclude the row being edited — that teacher is still valid for their own slot)
+    const alreadyCovering = new Set(
+      covers
+        .filter((c) => c.period === period && c.cover_teacher_id && c.id !== currentCoverId)
+        .map((c) => c.cover_teacher_id)
+    );
     return teachers.filter(
-      (t) => t.id !== absentId && !teaching.has(t.id) && !absMap[t.id]?.has(period)
+      (t) =>
+        t.id !== absentId &&
+        !teaching.has(t.id) &&
+        !absMap[t.id]?.has(period) &&
+        !alreadyCovering.has(t.id)
     );
   }
 
@@ -65,7 +76,7 @@ export default function ReviewTab({ school, teachers, covers, absences, slots, r
               <tbody>
                 {rows.map((c) => {
                   const cov = c.cover_teacher_id ? byId[c.cover_teacher_id] : null;
-                  const options = freeAt(c.period, aid);
+                  const options = freeAt(c.period, aid, c.id);
                   return (
                     <tr key={c.id}>
                       <td><strong>{periodLabelLong(c.period)}</strong></td>

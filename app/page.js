@@ -184,6 +184,7 @@ export default function App() {
     <>
       <div className="topbar">
         <div className="logo"><Logo size={28} /> ReliefDesk</div>
+        <a className="topbar-link" href="/reports">Monthly Report</a>
         <div className="school">
           {school?.name || 'School'} · {session.user.email}
           <button className="signout danger" onClick={() => setShowReset(true)}>Reset all</button>

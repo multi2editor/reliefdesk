@@ -2,6 +2,7 @@
 
 import { supabase } from '../lib/supabaseClient';
 import { todayISO, todayDayIndex, dayLabel, dayCount, periodList, periodLabel } from '../lib/day';
+import { REASON_CODES, REASON_LABELS } from '../lib/reasons';
 
 export default function AbsencesTab({ school, teachers, absences, reload, onGenerate }) {
   const date = todayISO();
@@ -26,6 +27,13 @@ export default function AbsencesTab({ school, teachers, absences, reload, onGene
     } else {
       await supabase.from('absences').delete().eq('teacher_id', t.id).eq('date', date);
     }
+    await reload();
+  }
+
+  async function setReason(t, code) {
+    const row = absMap[t.id];
+    if (!row) return;
+    await supabase.from('absences').update({ reason: code }).eq('id', row.id);
     await reload();
   }
 
@@ -86,16 +94,28 @@ export default function AbsencesTab({ school, teachers, absences, reload, onGene
                   </span>
                 </label>
                 {row && (
-                  <div className="period-picker">
-                    {periodList(school).map((p) => {
-                      const on = row.periods.includes(p);
-                      return (
-                        <button key={p} className={`pbtn ${on ? 'on' : ''}`}
-                          style={p === 0 || p === 99 ? { width: 'auto', padding: '0 8px' } : {}}
-                          onClick={() => togglePeriod(t, p)}>{periodLabel(p)}</button>
-                      );
-                    })}
-                  </div>
+                  <>
+                    <div className="period-picker">
+                      {periodList(school).map((p) => {
+                        const on = row.periods.includes(p);
+                        return (
+                          <button key={p} className={`pbtn ${on ? 'on' : ''}`}
+                            style={p === 0 || p === 99 ? { width: 'auto', padding: '0 8px' } : {}}
+                            onClick={() => togglePeriod(t, p)}>{periodLabel(p)}</button>
+                        );
+                      })}
+                    </div>
+                    <select
+                      value={row.reason || ''}
+                      onChange={(e) => setReason(t, e.target.value)}
+                      style={{ maxWidth: 200 }}
+                    >
+                      <option value="">Reason…</option>
+                      {REASON_CODES.map((c) => (
+                        <option key={c} value={c}>{REASON_LABELS[c]}</option>
+                      ))}
+                    </select>
+                  </>
                 )}
               </div>
             );
