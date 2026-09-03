@@ -91,6 +91,31 @@ export default function ReportsPage() {
     if (session) load();
   }, [session, load]);
 
+  // ---------- delete a mistakenly-logged absence (and the covers it spawned) ----------
+  const deleteAbsence = useCallback(
+    async (absence) => {
+      setErr('');
+      try {
+        const { error: e1 } = await supabase
+          .from('absences')
+          .delete()
+          .eq('id', absence.id);
+        if (e1) throw e1;
+        // covers only existed because of this absence — remove them for the same teacher + date
+        const { error: e2 } = await supabase
+          .from('cover_assignments')
+          .delete()
+          .eq('absent_teacher_id', absence.teacher_id)
+          .eq('date', absence.date);
+        if (e2) throw e2;
+        await load();
+      } catch (e) {
+        setErr('Could not delete absence: ' + e.message);
+      }
+    },
+    [load]
+  );
+
   useEffect(() => {
     setDrill(null); // leaving a teacher's detail view when the month changes
   }, [ym]);
@@ -173,6 +198,7 @@ export default function ReportsPage() {
             covers={covers}
             byId={byId}
             onBack={() => setDrill(null)}
+            onDelete={deleteAbsence}
           />
         ) : (
           <>
@@ -243,7 +269,7 @@ export default function ReportsPage() {
 // View B — one teacher's absences for the month, with cover detail.
 // Reuses .rev-block / table.rev from the Review tab.
 // ============================================================
-function TeacherDetail({ teacher, ym, absences, covers, byId, onBack }) {
+function TeacherDetail({ teacher, ym, absences, covers, byId, onBack, onDelete }) {
   const rows = [...absences].sort((a, b) => a.date.localeCompare(b.date));
 
   function coveredBy(date, period) {
@@ -278,6 +304,7 @@ function TeacherDetail({ teacher, ym, absences, covers, byId, onBack }) {
               <th>Reason</th>
               <th>Periods affected</th>
               <th>Covered by</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
@@ -294,6 +321,25 @@ function TeacherDetail({ teacher, ym, absences, covers, byId, onBack }) {
                         {periodLabelLong(p)}: {coveredBy(a.date, p)}
                       </div>
                     ))}
+                  </td>
+                  <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                    <button
+                      className="btn ghost"
+                      title="Remove this absence"
+                      onClick={() => {
+                        if (
+                          confirm(
+                            `Remove ${teacher?.name || 'this teacher'}'s absence on ${fmtDate(
+                              a.date
+                            )}?\n\nThis also deletes any cover assignments that were created for that day.`
+                          )
+                        ) {
+                          onDelete(a);
+                        }
+                      }}
+                    >
+                      Remove
+                    </button>
                   </td>
                 </tr>
               );
