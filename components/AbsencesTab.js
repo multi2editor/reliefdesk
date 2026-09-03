@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabaseClient';
 import { todayISO, todayDayIndex, dayLabel, dayCount, periodList, periodLabel } from '../lib/day';
 import { REASON_CODES, REASON_LABELS } from '../lib/reasons';
 
-export default function AbsencesTab({ school, teachers, absences, reload, onGenerate }) {
+export default function AbsencesTab({ school, teachers, absences, reloadToday, reloadSchool, onGenerate }) {
   const date = todayISO();
   const absMap = {};
   absences.forEach((a) => (absMap[a.teacher_id] = a));
@@ -13,7 +13,7 @@ export default function AbsencesTab({ school, teachers, absences, reload, onGene
     await supabase.from('schools')
       .update({ current_cycle_day: parseInt(v, 10) })
       .eq('id', school.id);
-    await reload();
+    await reloadSchool();
   }
 
   async function toggleAbsent(t, checked) {
@@ -27,14 +27,14 @@ export default function AbsencesTab({ school, teachers, absences, reload, onGene
     } else {
       await supabase.from('absences').delete().eq('teacher_id', t.id).eq('date', date);
     }
-    await reload();
+    await reloadToday();
   }
 
   async function setReason(t, code) {
     const row = absMap[t.id];
     if (!row) return;
     await supabase.from('absences').update({ reason: code }).eq('id', row.id);
-    await reload();
+    await reloadToday();
   }
 
   async function togglePeriod(t, p) {
@@ -48,7 +48,7 @@ export default function AbsencesTab({ school, teachers, absences, reload, onGene
     } else {
       await supabase.from('absences').update({ periods: arr }).eq('id', row.id);
     }
-    await reload();
+    await reloadToday();
   }
 
   const dateLabel = new Date().toLocaleDateString('en-ZA', {

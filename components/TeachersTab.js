@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { dayCount, dayLabel, periodList, periodLabel } from '../lib/day';
 
-export default function TeachersTab({ school, teachers, slots, recentCounts, reload }) {
+export default function TeachersTab({ school, teachers, slots, recentCounts, reloadTeachers, reloadSlots }) {
   const [editing, setEditing] = useState(null);
   const [newName, setNewName] = useState('');
   const [newSubject, setNewSubject] = useState('');
@@ -19,7 +19,7 @@ export default function TeachersTab({ school, teachers, slots, recentCounts, rel
       subject: newSubject.trim(),
     });
     setNewName(''); setNewSubject('');
-    await reload();
+    await reloadTeachers();
     setBusy(false);
   }
 
@@ -73,7 +73,8 @@ export default function TeachersTab({ school, teachers, slots, recentCounts, rel
 
       {editing && (
         <GridEditor key={editing.id} school={school} teacher={editing}
-          slots={slots} reload={reload} onClose={() => setEditing(null)} />
+          slots={slots} reloadTeachers={reloadTeachers} reloadSlots={reloadSlots}
+          onClose={() => setEditing(null)} />
       )}
     </section>
   );
@@ -84,7 +85,7 @@ export default function TeachersTab({ school, teachers, slots, recentCounts, rel
 // Cell format: "Class, Room" (e.g. "9B, Room 12"). Empty = FREE.
 // Supports pasting a block straight from Excel/Google Sheets.
 // ============================================================
-function GridEditor({ school, teacher, slots, reload, onClose }) {
+function GridEditor({ school, teacher, slots, reloadTeachers, reloadSlots, onClose }) {
   const days = dayCount(school);
   const periods = school.periods_per_day;
   const [grid, setGrid] = useState({}); // "d-p" -> text
@@ -165,7 +166,7 @@ function GridEditor({ school, teacher, slots, reload, onClose }) {
       const { error: insErr } = await supabase.from('timetable_slots').insert(desired);
       if (insErr) { setMsg(insErr.message); setSaving(false); return; }
     }
-    await reload();
+    await reloadSlots();
     setDirty(false);
     setSaving(false);
     setMsg('✓ Timetable saved.');
@@ -176,7 +177,7 @@ function GridEditor({ school, teacher, slots, reload, onClose }) {
     if (!trimmed) return;
     setSavingName(true);
     await supabase.from('teachers').update({ name: trimmed }).eq('id', teacher.id);
-    await reload();
+    await reloadTeachers();
     setSavingName(false);
     setEditingName(false);
   }
@@ -190,7 +191,8 @@ function GridEditor({ school, teacher, slots, reload, onClose }) {
     if (!confirm(`Remove ${teacher.name}? Their timetable and history go too.`)) return;
     await supabase.from('teachers').delete().eq('id', teacher.id);
     onClose();
-    await reload();
+    // removing a teacher cascades to their timetable slots and cover history
+    await Promise.all([reloadTeachers(), reloadSlots()]);
   }
 
   return (

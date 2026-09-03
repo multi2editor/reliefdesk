@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 
-export default function SettingsTab({ school, reload }) {
+export default function SettingsTab({ school, reloadSchool }) {
   const [name, setName] = useState(school.name);
   const [periods, setPeriods] = useState(school.periods_per_day);
   const [cap, setCap] = useState(school.daily_cover_cap);
@@ -32,7 +32,7 @@ export default function SettingsTab({ school, reload }) {
       cycle_days: mode === 'cycle' ? cd : (school.cycle_days || 10),
     }).eq('id', school.id);
     if (error) { setMsg(error.message); return; }
-    await reload();
+    await reloadSchool();
     setMsg('✓ Saved.');
   }
 

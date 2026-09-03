@@ -60,52 +60,97 @@ export default function App() {
 
   // ---------- data loading ----------
   const firstLoad = useRef(true);
+
+  // Targeted loaders — each refetches only its own slice, so a small
+  // mutation in a tab doesn't drag the whole dataset (2000+ timetable
+  // slots, 14-day history) down with it.
+  const loadSchool = useCallback(async () => {
+    if (!session) return false;
+    const { data: sch, error } = await supabase
+      .from('schools')
+      .select('*, school_admins!inner(user_id)')
+      .eq('school_admins.user_id', session.user.id)
+      .single();
+    if (error || !sch) {
+      setSchool(null);
+      setErr(
+        "No school is linked to this account. Check you're signing in with the right email, or contact support."
+      );
+      return false;
+    }
+    setSchool(sch);
+    return true;
+  }, [session]);
+
+  const loadTeachers = useCallback(async () => {
+    if (!session) return;
+    const { data, error } = await supabase
+      .from('teachers').select('*').eq('active', true).order('name');
+    if (error) { setErr('Could not load teachers: ' + error.message); return; }
+    setTeachers(data || []);
+  }, [session]);
+
+  const loadSlots = useCallback(async () => {
+    if (!session) return;
+    const { data, error } = await fetchAllTimetableSlots();
+    if (error) { setErr('Could not load timetables: ' + error.message); return; }
+    setSlots(data || []);
+  }, [session]);
+
+  const loadToday = useCallback(async () => {
+    if (!session) return;
+    const date = todayISO();
+    const [{ data: abs, error: aErr }, { data: cov, error: cErr }] = await Promise.all([
+      supabase.from('absences').select('*').eq('date', date),
+      supabase.from('cover_assignments').select('*').eq('date', date).order('period'),
+    ]);
+    if (aErr || cErr) {
+      setErr('Could not load today’s absences/covers: ' + (aErr || cErr).message);
+      return;
+    }
+    setAbsences(abs || []);
+    setCovers(cov || []);
+  }, [session]);
+
+  const loadRecentCounts = useCallback(async () => {
+    if (!session) return;
+    // fairness lookback: covers in the last 14 days
+    const since = new Date(Date.now() - 14 * 86400000).toISOString().slice(0, 10);
+    const { data: recent, error } = await supabase
+      .from('cover_assignments')
+      .select('cover_teacher_id')
+      .gte('date', since)
+      .not('cover_teacher_id', 'is', null);
+    if (error) { setErr('Could not load cover history: ' + error.message); return; }
+    const counts = {};
+    (recent || []).forEach((r) => {
+      counts[r.cover_teacher_id] = (counts[r.cover_teacher_id] || 0) + 1;
+    });
+    setRecentCounts(counts);
+  }, [session]);
+
+  // Full load — initial mount, and after generate() / performReset().
   const loadAll = useCallback(async () => {
     if (!session) return;
-        setLoading(true);
+    setLoading(true);
     setErr('');
     try {
-      console.log('LOAD START');
-      const { data: sch } = await supabase
-        .from('schools')
-        .select('*, school_admins!inner(user_id)')
-        .eq('school_admins.user_id', session.user.id)
-        .single();
-      const [{ data: t }, { data: sl }] = await Promise.all([
-        supabase.from('teachers').select('*').eq('active', true).order('name'),
-        fetchAllTimetableSlots(),
-      ]);
-      setSchool(sch);
-      setTeachers(t || []);
-      setSlots(sl || []);
-      console.log('LOAD MID: school+teachers+slots done', sch, t?.length, sl?.length);
-      const date = todayISO();
-      const [{ data: abs }, { data: cov }] = await Promise.all([
-        supabase.from('absences').select('*').eq('date', date),
-        supabase.from('cover_assignments').select('*').eq('date', date).order('period'),
-      ]);
-      setAbsences(abs || []);
-      setCovers(cov || []);
-
-      // fairness lookback: covers in the last 14 days
-      const since = new Date(Date.now() - 14 * 86400000).toISOString().slice(0, 10);
-      const { data: recent } = await supabase
-        .from('cover_assignments')
-        .select('cover_teacher_id')
-        .gte('date', since)
-        .not('cover_teacher_id', 'is', null);
-      const counts = {};
-      (recent || []).forEach((r) => {
-        counts[r.cover_teacher_id] = (counts[r.cover_teacher_id] || 0) + 1;
-      });
-      setRecentCounts(counts);
-       } catch (e) {
+      const ok = await loadSchool();
+      if (ok) {
+        await Promise.all([
+          loadTeachers(),
+          loadSlots(),
+          loadToday(),
+          loadRecentCounts(),
+        ]);
+      }
+    } catch (e) {
       console.error('LOAD ERROR:', e);
       setErr('Could not load data: ' + e.message);
     }
     setLoading(false);
     firstLoad.current = false;
-  }, [session]);
+  }, [session, loadSchool, loadTeachers, loadSlots, loadToday, loadRecentCounts]);
 
   useEffect(() => {
     if (session) loadAll();
@@ -164,6 +209,7 @@ export default function App() {
 
   // ---------- reset (password-confirmed, in-app modal) ----------
   async function performReset(password) {
+    if (!school) return 'No school is linked to this account. Nothing was reset.';
     const email = session?.user?.email;
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) return 'Incorrect password. Nothing was reset.';
@@ -187,7 +233,9 @@ export default function App() {
         <a className="topbar-link" href="/reports">Monthly Report</a>
         <div className="school">
           {school?.name || 'School'} · {session.user.email}
-          <button className="signout danger" onClick={() => setShowReset(true)}>Reset all</button>
+          {school && (
+            <button className="signout danger" onClick={() => setShowReset(true)}>Reset all</button>
+          )}
           <button className="signout" onClick={() => supabase.auth.signOut()}>Sign out</button>
         </div>
       </div>
@@ -204,26 +252,29 @@ export default function App() {
         {err && <p className="err">{err}</p>}
         {loading ? (
           <div className="empty">Loading…</div>
+        ) : !school ? (
+          !err && <div className="empty">No school is linked to this account.</div>
         ) : (
           <>
             {tab === 'teachers' && (
               <TeachersTab school={school} teachers={teachers} slots={slots}
-                recentCounts={recentCounts} reload={loadAll} />
+                recentCounts={recentCounts}
+                reloadTeachers={loadTeachers} reloadSlots={loadSlots} />
             )}
             {tab === 'absences' && (
               <AbsencesTab school={school} teachers={teachers} absences={absences}
-                reload={loadAll} onGenerate={generate} />
+                reloadToday={loadToday} reloadSchool={loadSchool} onGenerate={generate} />
             )}
             {tab === 'review' && (
               <ReviewTab school={school} teachers={teachers} covers={covers}
-                absences={absences} slots={slots} reload={loadAll}
+                absences={absences} slots={slots} reloadToday={loadToday}
                 goPrint={() => setTab('print')} />
             )}
             {tab === 'print' && (
               <PrintTab school={school} teachers={teachers} covers={covers} absences={absences} />
             )}
             {tab === 'settings' && (
-              <SettingsTab school={school} reload={loadAll} />
+              <SettingsTab school={school} reloadSchool={loadSchool} />
             )}
           </>
         )}

@@ -3,7 +3,7 @@
 import { supabase } from '../lib/supabaseClient';
 import { todayDayIndex, periodLabelLong } from '../lib/day';
 
-export default function ReviewTab({ school, teachers, covers, absences, slots, reload, goPrint }) {
+export default function ReviewTab({ school, teachers, covers, absences, slots, reloadToday, goPrint }) {
   const byId = Object.fromEntries(teachers.map((t) => [t.id, t]));
   const absMap = {};
   absences.forEach((a) => (absMap[a.teacher_id] = new Set(a.periods)));
@@ -36,7 +36,7 @@ export default function ReviewTab({ school, teachers, covers, absences, slots, r
     await supabase.from('cover_assignments')
       .update({ cover_teacher_id: newTeacherId, overridden: true })
       .eq('id', cover.id);
-    await reload();
+    await reloadToday();
   }
 
   if (covers.length === 0) {
